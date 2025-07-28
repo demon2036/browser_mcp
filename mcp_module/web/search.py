@@ -23,7 +23,7 @@ SEARCH_TOOL_CONFIG = {
         'required': ['query']
     },
     'hidden_params': {
-        'searxng_url': 'http://localhost:8888'
+        'searxng_url': 'http://localhost:8988'
     }
 }
 
