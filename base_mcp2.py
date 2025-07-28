@@ -79,7 +79,7 @@ class NativeMCPServer:
             # 调用异步函数
             result = await func(**full_args)
 
-            return [TextContent(type="text", text=reresult)]
+            return [TextContent(type="text", text=result)]
 
     def register_tools(self, tools_config: List[Dict[str, Any]]):
         """注册工具配置
