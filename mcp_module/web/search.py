@@ -39,7 +39,7 @@ async def searxng_search(query: str, searxng_url: str = "http://localhost:8888",
                     timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
                 data = await response.json()
-                prprint(data)
+                print(data)
                 return [
                     {'title': item.get('title', ''), 'url': item.get('url', ''), 'snippet': item.get('content', '')}
                     for item in data.get('results', [])[:max_results]
