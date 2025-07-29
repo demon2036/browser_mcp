@@ -35,10 +35,11 @@ async def searxng_search(query: str, searxng_url: str = "http://localhost:8888",
         async with aiohttp.ClientSession() as session:
             async with session.get(
                     f"{searxng_url}/search",
-                    params={'q': query, 'format': 'json', 'categories': 'general', 'engines': '360search'},
+                    params={'q': query, 'format': 'json', 'categories': 'general', },#'engines': '360search'
                     timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
                 data = await response.json()
+                prprint(data)
                 return [
                     {'title': item.get('title', ''), 'url': item.get('url', ''), 'snippet': item.get('content', '')}
                     for item in data.get('results', [])[:max_results]
