@@ -1,11 +1,26 @@
-import asyncio
+# ========== 示例使用 ==========
+from mcp_module.web.search import search
 
-from mcp_module.web.fetch import fetch,fetch_summary
+# ========== 示例使用 ==========
+if __name__ == "__main__":
+    import asyncio
 
 
+    async def main():
+        # 直接使用Google搜索（默认），API密钥会自动从环境变量读取
+        results = await search(
+            query="ぱんぱかカフぃR",
+            max_results=3,
+            google_api_key='b7521a1c6a1c397d19274ee1ff1f5ab9b86d2f69'
+        )
+        print(results)
 
-print(asyncio.run(fetch_summary('https://kamitsubaki.jp/event/artist/kaf/',query='电台节目数量',
+        print("Google Search Results:")
+        for i, result in enumerate(results, 1):
+            print(f"{i}. {result.get('title', 'No title')}")
+            print(f"   URL: {result.get('url', 'No URL')}")
+            print(f"   Snippet: {result.get('snippet', 'No snippet')[:100]}...")
+            print()
 
-api_base='https://ms-shpc7pdz-100034032793-sw.gw.ap-shanghai.ti.tencentcs.com/ms-shpc7pdz/v1'
 
-                        )           ))
+    asyncio.run(main())
