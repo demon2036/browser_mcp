@@ -80,7 +80,7 @@ class NativeMCPServer:
             result = await func(**full_args)
             print(result)
 
-            return [TextContent(type="text", text=result)]
+            return [TextContent(type="text", text=str(result))]
 
     def register_tools(self, tools_config: List[Dict[str, Any]]):
         """注册工具配置
