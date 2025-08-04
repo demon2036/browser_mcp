@@ -43,6 +43,77 @@ def get_extension_from_content_type(content_type):
     return ''
 
 
+async def get_file_metadata(url: str, page: Page = None) -> Dict:
+    """Get file metadata without downloading the entire file"""
+    try:
+        # Try HEAD request first
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.head(url, allow_redirects=True) as response:
+                    response.raise_for_status()
+
+                    filename = extract_filename_from_headers(response.headers)
+                    if not filename:
+                        parsed_url = urlparse(url)
+                        filename = unquote(parsed_url.path.split('/')[-1])
+                        if not filename or filename.endswith('/'):
+                            filename = 'download'
+                            ext = get_extension_from_content_type(response.headers.get('content-type'))
+                            if ext and not filename.endswith(ext):
+                                filename += ext
+
+                    return {
+                        "filename": filename,
+                        "url": url,
+                        "size": int(response.headers.get('content-length', 0)),
+                        "content_type": response.headers.get('content-type', 'unknown'),
+                        "method": "head_request"
+                    }
+            except Exception as e:
+                logger.info(f"HEAD request failed: {e}, trying partial GET")
+
+                # Fallback to partial GET
+                headers = {'Range': 'bytes=0-0'}
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 206:  # Partial Content
+                        content_range = response.headers.get('content-range', '')
+                        size_match = re.search(r'/(\d+)$', content_range)
+                        size = int(size_match.group(1)) if size_match else 0
+                    else:
+                        size = int(response.headers.get('content-length', 0))
+
+                    filename = extract_filename_from_headers(response.headers)
+                    if not filename:
+                        parsed_url = urlparse(url)
+                        filename = unquote(parsed_url.path.split('/')[-1])
+                        if not filename or filename.endswith('/'):
+                            filename = 'download'
+                            ext = get_extension_from_content_type(response.headers.get('content-type'))
+                            if ext and not filename.endswith(ext):
+                                filename += ext
+
+                    return {
+                        "filename": filename,
+                        "url": url,
+                        "size": size,
+                        "content_type": response.headers.get('content-type', 'unknown'),
+                        "method": "partial_get"
+                    }
+
+    except Exception as e:
+        logger.error(f"Failed to get file metadata: {e}")
+        # Return basic info if metadata fetch fails
+        parsed_url = urlparse(url)
+        filename = unquote(parsed_url.path.split('/')[-1]) or 'download'
+        return {
+            "filename": filename,
+            "url": url,
+            "size": 0,
+            "content_type": "unknown",
+            "method": "fallback"
+        }
+
+
 class BrowserManager:
     """Manages browser sessions with LRU eviction and SOTA element tracking."""
 
@@ -52,7 +123,7 @@ class BrowserManager:
         self.playwright = None
         self.browser: Optional[Browser] = None
         self.sessions: OrderedDict[str, Dict] = OrderedDict()
-        self.session_links: Dict[str, Dict[int, str]] = {}  # Now stores xpath strings
+        self.session_links: Dict[str, Dict[int, str]] = {}
         self._session_lock = asyncio.Lock()
 
     async def initialize(self):
@@ -124,7 +195,7 @@ class BrowserManager:
                 }});
             """)
 
-            # Extract interactive elements - direct copy from browser.py
+            # Extract interactive elements
             interactive = [node for _, node in result['map'].items()
                            if isinstance(node, dict) and node.get('isInteractive')]
 
@@ -174,17 +245,20 @@ class BrowserManager:
             # Setup download detection
             download_info = None
             download_detected = asyncio.Event()
-            navigation_error = None
 
-            def handle_download(download):
+            async def handle_download(download):
                 nonlocal download_info
-                download_info = {
+                # Get basic info from download event
+                basic_info = {
                     "filename": download.suggested_filename,
                     "url": download.url,
                     "detected": True,
                     "status": "started",
                     "trigger": "navigation"
                 }
+                # Enrich with metadata
+                metadata = await get_file_metadata(download.url, page)
+                download_info = {**basic_info, **metadata}
                 download_detected.set()
                 logger.info(f"Download detected during navigation: {download.suggested_filename}")
 
@@ -197,41 +271,33 @@ class BrowserManager:
                                       '.xls', '.xlsx', '.ppt', '.pptx', '.rar', '.7z',
                                       '.tar', '.gz', '.iso', '.msi', '.deb', '.rpm'])
 
+            navigation_error = None
             try:
-                # Try to navigate to the URL
-                if is_likely_download:
-                    # For likely downloads, don't wait for domcontentloaded
-                    await page.goto(url, wait_until="commit")
-                else:
-                    await page.goto(url, wait_until="domcontentloaded")
-
+                # Try to navigate
+                await page.goto(url, wait_until="commit" if is_likely_download else "domcontentloaded")
             except Exception as e:
                 navigation_error = e
-                # Check if it's a download-related error
                 if "net::ERR_ABORTED" in str(e) or "Download is starting" in str(e):
                     logger.info(f"Navigation aborted due to download: {url}")
-                    # Wait a bit for download to be detected
                     try:
                         await asyncio.wait_for(download_detected.wait(), timeout=2.0)
                     except asyncio.TimeoutError:
                         pass
                 else:
-                    # Re-raise if it's not a download-related error
                     raise
 
-            # If not a download error, wait for page to settle or download
-            if not navigation_error:
+            # Wait for potential download
+            if not navigation_error and not download_info:
                 try:
                     await asyncio.wait_for(download_detected.wait(), timeout=2.0)
                 except asyncio.TimeoutError:
-                    # No download detected in 2 seconds, continue normally
                     if not is_likely_download:
                         await page.wait_for_timeout(2000)
 
-            # Remove download handler to avoid memory leaks
+            # Remove download handler
             page.remove_listener("download", handle_download)
 
-            # Handle the case where navigation failed but download was detected
+            # Handle direct download case
             if navigation_error and download_info:
                 return {
                     "success": True,
@@ -239,27 +305,21 @@ class BrowserManager:
                     "title": "Direct Download",
                     "links": [],
                     "download_info": download_info,
-                    "description": "Direct download link - file download started successfully.",
                     "action_type": "direct_download"
                 }
             elif navigation_error:
-                # Navigation failed and no download detected
                 raise navigation_error
 
             # Normal page navigation
             title = await page.title()
             current_url = page.url
 
-            # Only extract links if we actually loaded a page
+            # Extract links if not a download
+            links = []
             if not download_info or not is_likely_download:
                 links_result = await self.extract_and_store_links(page, session_id)
-                if not links_result["success"]:
-                    # If link extraction fails, still return success if we got the page
-                    links = []
-                else:
+                if links_result["success"]:
                     links = links_result["links"]
-            else:
-                links = []
 
             result = {
                 "success": True,
@@ -271,11 +331,8 @@ class BrowserManager:
             # Add download info if detected
             if download_info:
                 result["download_info"] = download_info
-                result["description"] = "Navigation completed with automatic download detected."
                 if is_likely_download:
                     result["action_type"] = "direct_download"
-            else:
-                result["description"] = "Navigation completed successfully."
 
             return result
 
@@ -284,7 +341,7 @@ class BrowserManager:
             return {"success": False, "error": str(e)}
 
     async def click_link(self, link_number: int, session_id: str) -> Dict:
-        """Click an interactive element with SOTA download detection."""
+        """Click an interactive element with download detection."""
         try:
             async with self._session_lock:
                 if session_id not in self.session_links:
@@ -302,15 +359,19 @@ class BrowserManager:
             download_info = None
             download_detected = asyncio.Event()
 
-            def handle_download(download):
+            async def handle_download(download):
                 nonlocal download_info
-                download_info = {
+                # Get basic info from download event
+                basic_info = {
                     "filename": download.suggested_filename,
                     "url": download.url,
                     "detected": True,
                     "status": "started",
                     "trigger": "click"
                 }
+                # Enrich with metadata
+                metadata = await get_file_metadata(download.url, page)
+                download_info = {**basic_info, **metadata}
                 download_detected.set()
                 logger.info(f"Download detected from click: {download.suggested_filename}")
 
@@ -323,258 +384,73 @@ class BrowserManager:
             # Click element
             await page.locator(f'xpath={xpath}').first.click()
 
-            # Wait for potential changes (download or navigation)
+            # Wait for potential changes
             try:
                 await asyncio.wait_for(download_detected.wait(), timeout=3.0)
             except asyncio.TimeoutError:
-                # No download detected, wait for potential navigation
                 await page.wait_for_timeout(3000)
 
             # Remove download handler
             page.remove_listener("download", handle_download)
 
-            # Determine what happened
+            # Determine action type
             new_url = page.url
             new_title = await page.title()
 
             if download_info:
                 action_type = "download"
-                description = "Download triggered successfully. Page remained unchanged but browser detected file download."
             elif new_url != old_url or new_title != old_title:
                 action_type = "navigation"
-                description = "Click triggered page navigation."
             else:
                 action_type = "no_change"
-                description = "Click completed but no page change or download detected. Element may be inactive or action failed."
 
             # Re-analyze page elements
             links_result = await self.extract_and_store_links(page, session_id)
-
             if not links_result["success"]:
                 return links_result
 
-            return {
+            result = {
                 "success": True,
                 "action_type": action_type,
-                "description": description,
-                "download_info": download_info,
                 "url": new_url,
                 "title": new_title,
                 "links": links_result["links"]
             }
 
+            # Add download info if detected
+            if download_info:
+                result["download_info"] = download_info
+
+            return result
+
         except Exception as e:
             logger.error(f"Click element error: {e}")
             return {"success": False, "error": str(e)}
 
-    async def force_download(self, url: str, filename: str = None, session_id: str = None) -> Dict:
+    async def force_download(self, url: str, session_id: str = None) -> Dict:
         """Get file metadata without downloading the entire file"""
         try:
-            # Try HEAD request first for metadata
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.head(url, allow_redirects=True) as response:
-                        response.raise_for_status()
-
-                        # Auto-detect filename if not provided
-                        # if not filename:
-                        #     filename = extract_filename_from_headers(response.headers)
-                        #     if not filename:
-                        #         parsed_url = urlparse(url)
-                        #         filename = unquote(parsed_url.path.split('/')[-1])
-                        #         if not filename or filename.endswith('/'):
-                        #             filename = 'download'
-                        #             ext = get_extension_from_content_type(response.headers.get('content-type'))
-                        #             if ext and not filename.endswith(ext):
-                        #                 filename += ext
-
-                        filename = extract_filename_from_headers(response.headers)
-                        if not filename:
-                            parsed_url = urlparse(url)
-                            filename = unquote(parsed_url.path.split('/')[-1])
-                            if not filename or filename.endswith('/'):
-                                filename = 'download'
-                                ext = get_extension_from_content_type(response.headers.get('content-type'))
-                                if ext and not filename.endswith(ext):
-                                    filename += ext
-
-
-                        # Get file size from Content-Length header
-                        size = int(response.headers.get('content-length', 0))
-                        content_type = response.headers.get('content-type', 'unknown')
-
-                        return {
-                            "success": True,
-                            "method": "head_request",
-                            "filepath": f"downloads/{filename}",  # Virtual path
-                            "filename": filename,
-                            "size": size,
-                            "content_type": content_type
-                        }
-
-            except Exception as e:
-                logger.info(f"HEAD request failed: {e}, trying partial GET")
-
-                # Fallback to partial GET request
-                try:
-                    async with aiohttp.ClientSession() as session:
-                        # Request only first byte to get headers
-                        headers = {'Range': 'bytes=0-0'}
-                        async with session.get(url, headers=headers) as response:
-                            # Check if server supports range requests
-                            if response.status == 206:  # Partial Content
-                                # Extract total size from Content-Range header
-                                content_range = response.headers.get('content-range', '')
-                                size_match = re.search(r'/(\d+)$', content_range)
-                                size = int(size_match.group(1)) if size_match else 0
-                            else:
-                                # Server doesn't support range, use Content-Length
-                                size = int(response.headers.get('content-length', 0))
-
-                            # Auto-detect filename if not provided
-                            # if not filename:
-                            #     filename = extract_filename_from_headers(response.headers)
-                            #     if not filename:
-                            #         parsed_url = urlparse(url)
-                            #         filename = unquote(parsed_url.path.split('/')[-1])
-                            #         if not filename or filename.endswith('/'):
-                            #             filename = 'download'
-                            #             ext = get_extension_from_content_type(response.headers.get('content-type'))
-                            #             if ext and not filename.endswith(ext):
-                            #                 filename += ext
-
-                            filename = extract_filename_from_headers(response.headers)
-                            if not filename:
-                                parsed_url = urlparse(url)
-                                filename = unquote(parsed_url.path.split('/')[-1])
-                                if not filename or filename.endswith('/'):
-                                    filename = 'download'
-                                    ext = get_extension_from_content_type(response.headers.get('content-type'))
-                                    if ext and not filename.endswith(ext):
-                                        filename += ext
-
-                            content_type = response.headers.get('content-type', 'unknown')
-
-                            return {
-                                "success": True,
-                                "method": "partial_get",
-                                "filepath": f"downloads/{filename}",  # Virtual path
-                                "filename": filename,
-                                "size": size,
-                                "content_type": content_type
-                            }
-                except Exception as e:
-                    logger.info(f"Partial GET failed: {e}, trying browser method")
-
-            # Fallback to browser-based metadata fetch
             page = await self.get_or_create_session(session_id or "download_session")
 
-            if not filename:
-                parsed_url = urlparse(url)
-                filename = unquote(parsed_url.path.split('/')[-1]) or 'download'
+            # Get metadata
+            metadata = await get_file_metadata(url, page)
 
-            # Try browser fetch to get metadata only
-            try:
-                await page.goto('about:blank')
-                result = await page.evaluate('''
-                    async (url) => {
-                        try {
-                            const response = await fetch(url, { method: 'HEAD' });
-                            const headers = {};
-                            response.headers.forEach((value, key) => {
-                                headers[key] = value;
-                            });
-                            return {
-                                success: true,
-                                headers: headers,
-                                status: response.status
-                            };
-                        } catch (headError) {
-                            // If HEAD fails, try GET with abort
-                            try {
-                                const controller = new AbortController();
-                                const response = await fetch(url, { 
-                                    signal: controller.signal,
-                                    method: 'GET'
-                                });
-                                const headers = {};
-                                response.headers.forEach((value, key) => {
-                                    headers[key] = value;
-                                });
-                                // Abort after getting headers
-                                controller.abort();
-                                return {
-                                    success: true,
-                                    headers: headers,
-                                    status: response.status
-                                };
-                            } catch (error) {
-                                return {success: false, error: error.message};
-                            }
-                        }
-                    }
-                ''', url)
+            # Build download_info
+            download_info = {
+                **metadata,
+                "detected": True,
+                "status": "metadata_only",
+                "trigger": "force"
+            }
 
-                if result["success"]:
-                    headers = result["headers"]
-                    size = int(headers.get('content-length', 0))
-                    content_type = headers.get('content-type', 'unknown')
-
-                    # Try to get filename from headers
-                    if not filename or filename == 'download':
-                        header_filename = extract_filename_from_headers(headers)
-                        if header_filename:
-                            filename = header_filename
-                        else:
-                            ext = get_extension_from_content_type(content_type)
-                            if ext and not filename.endswith(ext):
-                                filename += ext
-
-                    return {
-                        "success": True,
-                        "method": "browser_fetch_metadata",
-                        "filepath": f"downloads/{filename}",
-                        "filename": filename,
-                        "size": size,
-                        "content_type": content_type
-                    }
-            except Exception as e:
-                logger.info(f"Browser metadata fetch failed: {e}")
-
-            # Final attempt: navigate and check response
-            try:
-                response = await page.goto(url, wait_until="commit")
-                if response:
-                    headers = response.headers
-                    size = int(headers.get('content-length', 0))
-                    content_type = headers.get('content-type', 'unknown')
-
-                    # Try to get filename
-                    if not filename or filename == 'download':
-                        header_filename = extract_filename_from_headers(headers)
-                        if header_filename:
-                            filename = header_filename
-                        else:
-                            ext = get_extension_from_content_type(content_type)
-                            if ext and not filename.endswith(ext):
-                                filename += ext
-
-                    # Don't wait for full load, just return metadata
-                    return {
-                        "success": True,
-                        "method": "browser_navigation_metadata",
-                        "filepath": f"downloads/{filename}",
-                        "filename": filename,
-                        "size": size,
-                        "content_type": content_type
-                    }
-            except Exception as e:
-                logger.error(f"All metadata fetch methods failed: {e}")
-
-            return {"success": False, "error": "All metadata fetch methods failed"}
+            return {
+                "success": True,
+                "download_info": download_info,
+                "filepath": f"downloads/{download_info['filename']}"  # Virtual path for compatibility
+            }
 
         except Exception as e:
-            logger.error(f"Force download metadata error: {e}")
+            logger.error(f"Force download error: {e}")
             return {"success": False, "error": str(e)}
 
 
@@ -594,27 +470,26 @@ def create_browser_tools(browser_manager: BrowserManager) -> List[Dict[str, Any]
         return await browser_manager.click_link(arguments["element_number"], session_id)
 
     async def force_download(ctx, arguments: dict) -> Dict:
-        """Force download a file"""
+        """Get file metadata without downloading"""
         session_id = str(id(ctx.session))
         return await browser_manager.force_download(
             arguments["url"],
-            arguments.get("filename"),
             session_id
         )
 
     return [
         {
             "name": "navigate",
-            "description": "Navigate to a URL and analyze interactive elements. Handles both regular pages and direct download links. Detects automatic downloads triggered by navigation.",
+            "description": "Navigate to a URL and analyze interactive elements. Returns download_info if download is detected.",
             "schema": {
                 "type": "object",
                 "required": ["url"],
                 "properties": {
                     "url": {
                         "type": "string",
-                        "description": "The URL to navigate to (can be a webpage or direct download link)",
+                        "description": "The URL to navigate to",
                         "pattern": "^https?://",
-                        "examples": ["https://example.com", "http://localhost:3000", "https://example.com/file.dmg"]
+                        "examples": ["https://example.com", "https://example.com/file.dmg"]
                     }
                 },
                 "additionalProperties": False
@@ -623,43 +498,36 @@ def create_browser_tools(browser_manager: BrowserManager) -> List[Dict[str, Any]
         },
         {
             "name": "click_element",
-            "description": "Click an interactive element by its number with download detection",
+            "description": "Click an interactive element. Returns download_info if download is triggered.",
             "schema": {
                 "type": "object",
                 "required": ["element_number"],
                 "properties": {
                     "element_number": {
                         "type": "integer",
-                        "description": "The number of the element to click (1-based index)",
-                        "minimum": 1,
-                        "examples": [1, 2, 3]
+                        "description": "The number of the element to click",
+                        "minimum": 1
                     }
                 },
                 "additionalProperties": False
             },
             "handler": click_element
         },
-        # {
-        #     "name": "force_download",
-        #     "description": "Get file metadata (filename, size, type) without downloading. Uses multiple strategies: HEAD request, partial GET, and browser-based methods.",
-        #     "schema": {
-        #         "type": "object",
-        #         "required": ["url"],
-        #         "properties": {
-        #             "url": {
-        #                 "type": "string",
-        #                 "description": "The URL of the file to analyze",
-        #                 "pattern": "^https?://",
-        #                 "examples": ["https://example.com/file.pdf", "https://example.com/image.png"]
-        #             },
-        #             "filename": {
-        #                 "type": "string",
-        #                 "description": "Optional custom filename. If not provided, will be auto-detected from headers or URL",
-        #                 "examples": ["custom_name.pdf", "download.png"]
-        #             }
-        #         },
-        #         "additionalProperties": False
-        #     },
-        #     "handler": force_download
-        # }
+        {
+            "name": "force_download",
+            "description": "Get file metadata without downloading. Always returns download_info.",
+            "schema": {
+                "type": "object",
+                "required": ["url"],
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "The URL of the file",
+                        "pattern": "^https?://"
+                    }
+                },
+                "additionalProperties": False
+            },
+            "handler": force_download
+        }
     ]
