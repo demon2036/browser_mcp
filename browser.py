@@ -132,7 +132,8 @@ class BrowserManager:
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(
                 headless=self.headless,
-                args=['--no-sandbox', '--disable-setuid-sandbox']
+                args=['--no-sandbox', '--disable-setuid-sandbox'],
+
             )
             logger.info("Browser initialized")
 
@@ -172,7 +173,9 @@ class BrowserManager:
                 logger.info(f"Evicted session: {oldest_id}")
 
             # Create new session
-            context = await self.browser.new_context(viewport={"width": 1920, "height": 1080})
+            context = await self.browser.new_context(
+                proxy={'server':'https_proxy=http://127.0.0.1:8118'},
+                viewport={"width": 1920, "height": 1080})
             page = await context.new_page()
             self.sessions[session_id] = {'context': context, 'page': page}
             self.session_links[session_id] = {}
