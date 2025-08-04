@@ -377,16 +377,27 @@ class BrowserManager:
                         response.raise_for_status()
 
                         # Auto-detect filename if not provided
+                        # if not filename:
+                        #     filename = extract_filename_from_headers(response.headers)
+                        #     if not filename:
+                        #         parsed_url = urlparse(url)
+                        #         filename = unquote(parsed_url.path.split('/')[-1])
+                        #         if not filename or filename.endswith('/'):
+                        #             filename = 'download'
+                        #             ext = get_extension_from_content_type(response.headers.get('content-type'))
+                        #             if ext and not filename.endswith(ext):
+                        #                 filename += ext
+
+                        filename = extract_filename_from_headers(response.headers)
                         if not filename:
-                            filename = extract_filename_from_headers(response.headers)
-                            if not filename:
-                                parsed_url = urlparse(url)
-                                filename = unquote(parsed_url.path.split('/')[-1])
-                                if not filename or filename.endswith('/'):
-                                    filename = 'download'
-                                    ext = get_extension_from_content_type(response.headers.get('content-type'))
-                                    if ext and not filename.endswith(ext):
-                                        filename += ext
+                            parsed_url = urlparse(url)
+                            filename = unquote(parsed_url.path.split('/')[-1])
+                            if not filename or filename.endswith('/'):
+                                filename = 'download'
+                                ext = get_extension_from_content_type(response.headers.get('content-type'))
+                                if ext and not filename.endswith(ext):
+                                    filename += ext
+
 
                         # Get file size from Content-Length header
                         size = int(response.headers.get('content-length', 0))

@@ -7,14 +7,14 @@ from mcp import ClientSession
 
 async def worker_task(worker_id, target_url, site_name):
     """工作任务函数"""
-    mcp_url = "http://0.0.0.0:8001/mcp"
+    mcp_url = "http://0.0.0.0:8000/mcp"
 
     async with streamablehttp_client(mcp_url) as (read_stream, write_stream, call_back):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             print(await session.list_tools())
 
-            res = await session.call_tool("search", arguments={'query': 'KAF'})
+            res = await session.call_tool("navigate", arguments={"url": "https://www.baidu.com/"})
             print(res.content[0].text)
 
 
