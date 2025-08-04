@@ -513,21 +513,21 @@ def create_browser_tools(browser_manager: BrowserManager) -> List[Dict[str, Any]
             },
             "handler": click_element
         },
-        {
-            "name": "force_download",
-            "description": "Get file metadata without downloading. Always returns download_info.",
-            "schema": {
-                "type": "object",
-                "required": ["url"],
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "The URL of the file",
-                        "pattern": "^https?://"
-                    }
-                },
-                "additionalProperties": False
-            },
-            "handler": force_download
-        }
+        # {
+        #     "name": "force_download",
+        #     "description": "Get file metadata without downloading. Always returns download_info.",
+        #     "schema": {
+        #         "type": "object",
+        #         "required": ["url"],
+        #         "properties": {
+        #             "url": {
+        #                 "type": "string",
+        #                 "description": "The URL of the file",
+        #                 "pattern": "^https?://"
+        #             }
+        #         },
+        #         "additionalProperties": False
+        #     },
+        #     "handler": force_download
+        # }
     ]
