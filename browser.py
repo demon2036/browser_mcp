@@ -639,27 +639,27 @@ def create_browser_tools(browser_manager: BrowserManager) -> List[Dict[str, Any]
             },
             "handler": click_element
         },
-        {
-            "name": "force_download",
-            "description": "Get file metadata (filename, size, type) without downloading. Uses multiple strategies: HEAD request, partial GET, and browser-based methods.",
-            "schema": {
-                "type": "object",
-                "required": ["url"],
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "The URL of the file to analyze",
-                        "pattern": "^https?://",
-                        "examples": ["https://example.com/file.pdf", "https://example.com/image.png"]
-                    },
-                    "filename": {
-                        "type": "string",
-                        "description": "Optional custom filename. If not provided, will be auto-detected from headers or URL",
-                        "examples": ["custom_name.pdf", "download.png"]
-                    }
-                },
-                "additionalProperties": False
-            },
-            "handler": force_download
-        }
+        # {
+        #     "name": "force_download",
+        #     "description": "Get file metadata (filename, size, type) without downloading. Uses multiple strategies: HEAD request, partial GET, and browser-based methods.",
+        #     "schema": {
+        #         "type": "object",
+        #         "required": ["url"],
+        #         "properties": {
+        #             "url": {
+        #                 "type": "string",
+        #                 "description": "The URL of the file to analyze",
+        #                 "pattern": "^https?://",
+        #                 "examples": ["https://example.com/file.pdf", "https://example.com/image.png"]
+        #             },
+        #             "filename": {
+        #                 "type": "string",
+        #                 "description": "Optional custom filename. If not provided, will be auto-detected from headers or URL",
+        #                 "examples": ["custom_name.pdf", "download.png"]
+        #             }
+        #         },
+        #         "additionalProperties": False
+        #     },
+        #     "handler": force_download
+        # }
     ]
