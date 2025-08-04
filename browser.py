@@ -128,11 +128,50 @@ class BrowserManager:
 
     async def initialize(self):
         """Initialize the browser instance."""
+        launch_options = {
+                "headless": self.headless,
+                "args": [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu',
+                    # Network-related flags
+                    '--disable-web-security',  # For CORS issues
+                    '--disable-features=IsolateOrigins,site-per-process',
+                    '--ignore-certificate-errors',  # For SSL issues
+                    '--ignore-certificate-errors-spki-list',
+                    # DNS and connectivity
+                    '--host-resolver-rules=MAP * ~NOTFOUND , EXCLUDE localhost',  # Force DNS resolution
+                    '--disable-background-networking',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-breakpad',
+                    '--disable-client-side-phishing-detection',
+                    '--disable-component-extensions-with-background-pages',
+                    '--disable-default-apps',
+                    '--disable-features=TranslateUI',
+                    '--disable-hang-monitor',
+                    '--disable-ipc-flooding-protection',
+                    '--disable-popup-blocking',
+                    '--disable-prompt-on-repost',
+                    '--disable-renderer-backgrounding',
+                    '--disable-sync',
+                    '--force-color-profile=srgb',
+                    '--metrics-recording-only',
+                    '--no-default-browser-check',
+                    '--password-store=basic',
+                    '--use-mock-keychain',
+                ]
+            }
+
+
         if not self.browser:
             self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(
-                headless=self.headless,
-                args=['--no-sandbox', '--disable-setuid-sandbox']
+               **launch_options
             )
             logger.info("Browser initialized")
 
