@@ -18,6 +18,8 @@ async def worker_task(worker_id, target_url, site_name):
             print(res.content[0].text)
             res = await session.call_tool("click_element", arguments={"element_number": 7})
             print(res.content[0].text)
+            res = await session.call_tool("click_element", arguments={"element_number": 7})
+            print(res.content[0].text)
 
 
 async def main():
