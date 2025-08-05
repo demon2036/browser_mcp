@@ -174,7 +174,7 @@ class BrowserManager:
 
             # Create new session
             context = await self.browser.new_context(
-                proxy={'server':'https_proxy=http://127.0.0.1:8118'},
+                # proxy={'server':'https_proxy=http://127.0.0.1:8118'},
                 viewport={"width": 1920, "height": 1080})
             page = await context.new_page()
             self.sessions[session_id] = {'context': context, 'page': page}
