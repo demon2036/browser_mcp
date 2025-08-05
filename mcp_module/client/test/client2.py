@@ -14,12 +14,12 @@ async def worker_task(worker_id, target_url, site_name):
             await session.initialize()
             print(await session.list_tools())
 
-            res = await session.call_tool("navigate", arguments={"url": "https://browser.qq.com/mac"})
+            res = await session.call_tool("navigate", arguments={"url": "https://aqllq.sengfeng.cn/channel_4.html?wordId=1170163895025&creativeid=123115745105&bfsemuserid=17022&pid=sembd102615&bd_vid=11092662730189734840"})
             print(res.content[0].text)
-            res = await session.call_tool("click_element", arguments={"element_number": 7})
+            res = await session.call_tool("click_element", arguments={"element_number": 3})
             print(res.content[0].text)
-            res = await session.call_tool("click_element", arguments={"element_number": 7})
-            print(res.content[0].text)
+            # res = await session.call_tool("force_download", arguments={"url": "https://browser.qq.com/mac"})
+            # print(res.content[0].text)
 
 
 async def main():

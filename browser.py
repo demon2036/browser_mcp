@@ -191,7 +191,7 @@ class BrowserManager:
             result = await page.evaluate(f"""
                 const analyzePage = {index_js_content};
                 analyzePage({{
-                    doHighlightElements: false,
+                    doHighlightElements: true,
                     focusHighlightIndex: -1,
                     viewportExpansion: 100,
                     debugMode: false
@@ -400,6 +400,9 @@ class BrowserManager:
             new_url = page.url
             new_title = await page.title()
 
+            metadata = await get_file_metadata(new_url, page)
+            print(metadata)
+
             if download_info:
                 action_type = "download"
             elif new_url != old_url or new_title != old_title:
@@ -516,21 +519,21 @@ def create_browser_tools(browser_manager: BrowserManager) -> List[Dict[str, Any]
             },
             "handler": click_element
         },
-        {
-            "name": "force_download",
-            "description": "Get file metadata without downloading. Always returns download_info.",
-            "schema": {
-                "type": "object",
-                "required": ["url"],
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "The URL of the file",
-                        "pattern": "^https?://"
-                    }
-                },
-                "additionalProperties": False
-            },
-            "handler": force_download
-        }
+        # {
+        #     "name": "force_download",
+        #     "description": "Get file metadata without downloading. Always returns download_info.",
+        #     "schema": {
+        #         "type": "object",
+        #         "required": ["url"],
+        #         "properties": {
+        #             "url": {
+        #                 "type": "string",
+        #                 "description": "The URL of the file",
+        #                 "pattern": "^https?://"
+        #             }
+        #         },
+        #         "additionalProperties": False
+        #     },
+        #     "handler": force_download
+        # }
     ]
