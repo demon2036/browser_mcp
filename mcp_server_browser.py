@@ -125,7 +125,7 @@ def main():
     )
 
     # Create browser manager
-    browser_manager = BrowserManager(max_sessions=128, headless=True)
+    browser_manager = BrowserManager(max_sessions=128, headless=False)
 
     # Create server with lifecycle functions
     server = GenericMCPServer(
