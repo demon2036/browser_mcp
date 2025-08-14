@@ -205,8 +205,8 @@ if __name__ == "__main__":
 
     # 1. 解析本地种子文件
     # quick_check("example.torrent")
-    quick_check('magnet:?xt=urn:btih:6d79b55d835bb62b5ab76784a31e4f7a1fa97682&dn=%5BNew-raws%5D%20Silent%20Witch%20-%2004%20%5B1080p%5D%20%5BAMZN%5D.mkv&tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce')
-    quick_check('a097065019ffe30c3b410c3b1b8a898cdd1f1600')
+    # quick_check('magnet:?xt=urn:btih:6d79b55d835bb62b5ab76784a31e4f7a1fa97682&dn=%5BNew-raws%5D%20Silent%20Witch%20-%2004%20%5B1080p%5D%20%5BAMZN%5D.mkv&tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce&tr=udp%3A%2F%2Fexodus.desync.com%3A6969%2Fannounce&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce')
+    quick_check('fed9fd0c70f2661f06adf423cb73f27a28bde329')
     # 2. 解析info hash
     # quick_check("6d79b55d835bb62b5ab76784a31e4f7a1fa97682")
 

@@ -172,9 +172,6 @@ async def fetch_summary(
             query=query,
             content=content[:35000]
         )
-
-
-
         print(api_base)
 
         # 初始化 AsyncOpenAI

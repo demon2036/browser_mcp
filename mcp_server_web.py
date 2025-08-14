@@ -16,6 +16,7 @@ from starlette.types import Receive, Scope, Send
 
 # 导入工具配置
 from mcp_module.web.search import get_tool_config as get_search_config
+from mcp_module.web.local_search import get_tool_config as get_local_search_config
 from mcp_module.web.fetch import (
     get_fetch_chunked_config,
     get_fetch_summary_config
@@ -163,7 +164,8 @@ if __name__ == "__main__":
 
     # 注册工具 - 极简化
     server.register_tools([
-        get_search_config(),
+        get_local_search_config()
+        # get_search_config(),
         # get_fetch_summary_config(),
         # get_fetch_summary_config()
     ])
