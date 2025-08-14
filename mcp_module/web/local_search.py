@@ -47,11 +47,17 @@ async def local_search(query: str, top_k: int = 3, **kwargs) -> list:
                     # 解析结果并返回top_k个
                     parsed = []
                     for r in results[:1]:  # 单查询返回
-                        data = json.loads(r) if isinstance(r, str) else r
-                        if isinstance(data, list):
-                            parsed.extend(data[:top_k])
+                        datas = json.loads(r) if isinstance(r, str) else r
+
+                        for data in datas['results']:
+                            data.pop('<coherence>', None)
+                            print(data)
+
+
+                        if isinstance(datas, list):
+                            parsed.extend(datas[:top_k])
                         else:
-                            parsed.append(data)
+                            parsed.append(datas)
                     return parsed[:top_k]
                 return [{'error': f'HTTP {resp.status}'}]
     except Exception as e:

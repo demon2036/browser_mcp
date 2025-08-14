@@ -1,23 +1,38 @@
 import asyncio
+import json
 import time
 
+import json5
 from mcp.client.streamable_http import streamablehttp_client
 from mcp import ClientSession
 
 
 async def worker_task(worker_id, target_url, site_name):
     """工作任务函数"""
-    mcp_url = "http://0.0.0.0:8000/mcp"
+    mcp_url = "http://0.0.0.0:8001/mcp"
 
     async with streamablehttp_client(mcp_url) as (read_stream, write_stream, call_back):
         async with ClientSession(read_stream, write_stream) as session:
             await session.initialize()
             print(await session.list_tools())
 
-            res = await session.call_tool("navigate", arguments={"url": "https://aqllq.sengfeng.cn/channel_4.html?wordId=1170163895025&creativeid=123115745105&bfsemuserid=17022&pid=sembd102615&bd_vid=11092662730189734840"})
-            print(res.content[0].text)
-            res = await session.call_tool("click_element", arguments={"element_number": 3})
-            print(res.content[0].text)
+            # res = await session.call_tool("navigate", arguments={"url": "https://aqllq.sengfeng.cn/channel_4.html?wordId=1170163895025&creativeid=123115745105&bfsemuserid=17022&pid=sembd102615&bd_vid=11092662730189734840"})
+            # print(res.content[0].text)
+            # res = await session.call_tool("click_element", arguments={"element_number": 3})
+            # print(res.content[0].text)
+
+
+            res = await session.call_tool("local_search", arguments={"query": 'France'})
+            print()
+
+
+            for data in json5.loads(res.content[0].text)[0]['results']:
+                data.pop('<coherence>',None)
+                print(data)
+
+            print()
+
+
             # res = await session.call_tool("force_download", arguments={"url": "https://browser.qq.com/mac"})
             # print(res.content[0].text)
 
