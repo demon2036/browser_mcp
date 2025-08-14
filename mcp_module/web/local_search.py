@@ -13,25 +13,21 @@ LOCAL_SEARCH_CONFIG = {
             'query': {
                 'type': 'string',
                 'description': '搜索查询'
-            },
-            'top_k': {
-                'type': 'integer',
-                'description': '返回结果数量',
-                'default': 3
             }
         },
         'required': ['query']
     },
     'hidden_params': {
         'endpoint': 'http://localhost:8101/search',
-        'timeout': 10
+        'timeout': 10,
+        'top_k': 3  # 默认返回3个结果
     }
 }
 
 
 # ========== 搜索实现 ==========
 @alru_cache(maxsize=500)
-async def local_search(query: str, top_k: int = 3, **kwargs) -> list:
+async def local_search(query: str, **kwargs) -> list:
     """调用本地搜索服务"""
     params = {**LOCAL_SEARCH_CONFIG['hidden_params'], **kwargs}
 
@@ -49,16 +45,17 @@ async def local_search(query: str, top_k: int = 3, **kwargs) -> list:
                     for r in results[:1]:  # 单查询返回
                         datas = json.loads(r) if isinstance(r, str) else r
 
-                        for data in datas['results']:
-                            data.pop('<coherence>', None)
-                            print(data)
-
+                        # 清理不需要的字段
+                        if 'results' in datas:
+                            for data in datas['results']:
+                                data.pop('<coherence>', None)
 
                         if isinstance(datas, list):
-                            parsed.extend(datas[:top_k])
+                            parsed.extend(datas[:params['top_k']])
                         else:
                             parsed.append(datas)
-                    return parsed[:top_k]
+
+                    return parsed[:params['top_k']]
                 return [{'error': f'HTTP {resp.status}'}]
     except Exception as e:
         return [{'error': f'Local search error: {e}'}]

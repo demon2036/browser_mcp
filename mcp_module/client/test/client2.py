@@ -26,11 +26,11 @@ async def worker_task(worker_id, target_url, site_name):
             print()
 
 
-            for data in json5.loads(res.content[0].text)[0]['results']:
-                data.pop('<coherence>',None)
-                print(data)
+            # for data in json5.loads(res.content[0].text)[0]['results']:
+            #     data.pop('<coherence>',None)
+            #     print(data)
 
-            print()
+            print(res.content[0].text)
 
 
             # res = await session.call_tool("force_download", arguments={"url": "https://browser.qq.com/mac"})
