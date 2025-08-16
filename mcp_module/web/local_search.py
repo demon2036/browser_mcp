@@ -50,12 +50,12 @@ async def local_search(query: str, **kwargs) -> list:
                             for data in datas['results']:
                                 data.pop('<coherence>', None)
 
-                        if isinstance(datas, list):
-                            parsed.extend(datas[:params['top_k']])
-                        else:
-                            parsed.append(datas)
+                        # if isinstance(datas, list):
+                        #     parsed.extend(datas[:params['top_k']])
+                        # else:
+                        #     parsed.append(datas)
 
-                    return parsed[:params['top_k']]
+                    return datasda
                 return [{'error': f'HTTP {resp.status}'}]
     except Exception as e:
         return [{'error': f'Local search error: {e}'}]
