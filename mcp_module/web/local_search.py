@@ -55,7 +55,7 @@ async def local_search(query: str, **kwargs) -> list:
                         # else:
                         #     parsed.append(datas)
 
-                    return datasda
+                    return datas
                 return [{'error': f'HTTP {resp.status}'}]
     except Exception as e:
         return [{'error': f'Local search error: {e}'}]
