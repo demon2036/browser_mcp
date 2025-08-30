@@ -164,8 +164,8 @@ if __name__ == "__main__":
 
     # 注册工具 - 极简化
     server.register_tools([
-        get_local_search_config()
-        # get_search_config(),
+        # get_local_search_config()
+        get_search_config(),
         # get_fetch_summary_config(),
         # get_fetch_summary_config()
     ])
